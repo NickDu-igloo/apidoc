@@ -15,10 +15,10 @@
     "title": "ahamove-fdc API",
     "version": "1.0.0"
   },
-  "host": "localhost:8080",
+  "host": "api.staging.iglooinsure.com",
   "basePath": "/",
   "paths": {
-    "/v1/transit-ahamove-fdc/bank_info": {
+    "/v1/transit-ahamove-fdc/partner/bank_info": {
       "put": {
         "tags": [
           "PartnerAPI"
@@ -91,7 +91,7 @@
         }
       }
     },
-    "/v1/transit-ahamove-fdc/claims": {
+    "/v1/transit-ahamove-fdc/partner/claims": {
       "get": {
         "tags": [
           "PartnerAPI"
@@ -256,7 +256,7 @@
         }
       }
     },
-    "/v1/transit-ahamove-fdc/claims/{id}": {
+    "/v1/transit-ahamove-fdc/partner/claims/{id}": {
       "get": {
         "tags": [
           "PartnerAPI"
@@ -329,7 +329,7 @@
         }
       }
     },
-    "/v1/transit-ahamove-fdc/policies": {
+    "/v1/transit-ahamove-fdc/partner/policies": {
       "get": {
         "tags": [
           "PartnerAPI"
@@ -417,7 +417,7 @@
         }
       }
     },
-    "/v1/transit-ahamove-fdc/policy/create_policy": {
+    "/v1/transit-ahamove-fdc/partner/policy/create_policy": {
       "post": {
         "tags": [
           "PartnerAPI"
@@ -490,7 +490,7 @@
         }
       }
     },
-    "/v1/transit-ahamove-fdc/policy/{policy_id}": {
+    "/v1/transit-ahamove-fdc/partner/policy/{policy_id}": {
       "get": {
         "tags": [
           "PartnerAPI"
@@ -562,6 +562,31 @@
           }
         }
       }
+    },
+    "/v1/transit-ahamove-fdc/partner/policyAndClaims/delete": {
+      "post": {
+        "tags": [
+          "PartnerAPI"
+        ],
+        "operationId": "DeletePolicyAndClaims",
+        "parameters": [
+          {
+            "name": "DeletePolicyAndClaimsReq",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/DeletePolicyAndClaimsReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "success",
+            "schema": {
+              "$ref": "#/definitions/DeletePolicyAndClaimsRes"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -599,7 +624,7 @@
           "enum": [
             "Issued",
             "Active",
-            "Ended"
+            "Expired"
           ],
           "x-go-name": "State"
         }
@@ -644,54 +669,43 @@
         "bank_info": {
           "$ref": "#/definitions/BankInfo"
         },
-        "call_logs_to_receiver": {
-          "type": "string",
-          "x-go-name": "CallLogsToReceiver"
-        },
-        "fail_delivery_item_info": {
-          "type": "string",
-          "x-go-name": "FailDeliveryItemInfo"
-        },
         "id": {
           "type": "string",
           "x-go-name": "ID"
         },
-        "order_time": {
-          "type": "integer",
-          "format": "int64",
-          "x-go-name": "OrderTime",
-          "description": "unix timestamp in sec"
+        "list_of_stop_delivery_points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ClaimItem"
+          },
+          "x-go-name": "ListOfStopDeliveryPoints"
         },
-        "failed_time": {
+        "order_id": {
+          "type": "string",
+          "x-go-name": "OrderID"
+        },
+        "order_time": {
+          "description": "unix timestamp in sec",
           "type": "integer",
           "format": "int64",
-          "x-go-name": "FailedTime",
-          "description": "unix timestamp in sec"
+          "x-go-name": "OrderTime"
+        },
+        "policy_id": {
+          "type": "string",
+          "x-go-name": "PolicyID"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "ClaimRequested",
+            "ClaimApproved",
+            "ClaimRejected",
+            "PendingProof",
+            "ClaimCompleted",
+            "ClaimCanceled"
+          ],
+          "x-go-name": "State"
         }
-      },
-      "photo_of_return_order_to_booker": {
-        "type": "string",
-        "x-go-name": "PhotoOfReturnOrderToBooker"
-      },
-      "policy_id": {
-        "type": "string",
-        "x-go-name": "PolicyID"
-      },
-      "return_conformation": {
-        "type": "string",
-        "x-go-name": "ReturnConformation"
-      },
-      "state": {
-        "type": "string",
-        "enum": [
-          "Claim requested",
-          "Claim approve",
-          "Claim reject",
-          "Reimburse pending",
-          "Reimburse updated",
-          "Claim complete"
-        ],
-        "x-go-name": "State"
       },
       "x-go-package": "gitlab.com/axinan/backend/transit/ahamove-fdc/internal/restapi"
     },
@@ -700,8 +714,7 @@
       "required": [
         "fail_delivery_item_info",
         "failed_time",
-        "photo_of_return_order_to_booker",
-        "aha_status"
+        "photo_of_return_order_to_booker"
       ],
       "properties": {
         "call_logs_to_receiver": {
@@ -725,13 +738,9 @@
           "type": "string",
           "x-go-name": "ReturnConformation"
         },
-        "aha_status": {
+        "stoppoint_id": {
           "type": "string",
-          "enum": [
-            "Claim approve",
-            "Claim reject"
-          ],
-          "x-go-name": "AhaStatus"
+          "x-go-name": "StoppointID"
         }
       }
     },
@@ -766,12 +775,25 @@
       "type": "object",
       "required": [
         "policy_id",
+        "order_id",
         "order_time"
       ],
       "properties": {
+        "aha_status": {
+          "type": "string",
+          "enum": [
+            "Claim approve",
+            "Claim reject"
+          ],
+          "x-go-name": "AhaStatus"
+        },
         "policy_id": {
           "type": "string",
           "x-go-name": "PolicyID"
+        },
+        "order_id": {
+          "type": "string",
+          "x-go-name": "OrderID"
         },
         "order_time": {
           "type": "integer",
@@ -1049,6 +1071,9 @@
     "PolicyInfo": {
       "type": "object",
       "properties": {
+        "bank_info": {
+          "$ref": "#/definitions/BankInfo"
+        },
         "coi": {
           "type": "string",
           "x-go-name": "Coi"
@@ -1087,24 +1112,20 @@
           "format": "int64",
           "x-go-name": "PolicyStartDate"
         },
-        "state": {
-          "enum": [
-            "Issued",
-            "Active",
-            "Ended"
-          ],
-          "type": "string",
-          "x-go-name": "State"
-        },
-        "coverage_amount": {
-          "type": "number",
-          "format": "double",
-          "x-go-name": "CoverageAmount"
-        },
         "premium_amount": {
           "type": "number",
           "format": "double",
           "x-go-name": "PremiumAmount"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "PolicyIssued",
+            "PolicyCancelled",
+            "PolicyActivated",
+            "PolicyExpired"
+          ],
+          "x-go-name": "State"
         }
       },
       "x-go-package": "gitlab.com/axinan/backend/transit/ahamove-fdc/internal/restapi"
@@ -1151,18 +1172,43 @@
         }
       },
       "x-go-package": "gitlab.com/axinan/backend/transit/ahamove-fdc/internal/restapi"
+    },
+    "DeletePolicyAndClaimsReq": {
+      "type": "object",
+      "properties": {
+        "policy_id": {
+          "type": "string",
+          "x-go-name": "PolicyID"
+        }
+      },
+      "x-go-package": "gitlab.com/axinan/backend/transit/ahamove-fdc/internal/restapi"
+    },
+    "DeletePolicyAndClaimsRes": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "x-go-name": "Message"
+        },
+        "ok": {
+          "type": "integer",
+          "format": "int32",
+          "x-go-name": "Ok"
+        }
+      },
+      "x-go-package": "gitlab.com/axinan/backend/transit/ahamove-fdc/internal/restapi"
     }
   },
   "securityDefinitions": {
     "api_key": {
       "type": "apiKey",
-      "name": "X-Axinan-Authorization",
+      "name": "x-Axinan-Key",
       "in": "header"
     }
   },
   "security": [
     {
-      "api_key": []
+      "api_key": ["b5fbc53d4d4d4ee6bdcce29768652c34"]
     }
   ]
 }
